@@ -19,8 +19,9 @@ security = HTTPBearer()
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
+
 def get_password_hash(password: str) -> str:
-    # truncate to 72 characters to prevent bcrypt errors
+    # truncate password to 72 characters for bcrypt
     truncated_password = password[:72]
     return pwd_context.hash(truncated_password)
 

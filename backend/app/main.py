@@ -5,6 +5,7 @@ from pydantic import BaseModel, EmailStr, constr
 from typing import Optional
 import openai
 import os
+import re
 from dotenv import load_dotenv
 from . import models, auth
 from .database import engine, get_db
@@ -54,6 +55,121 @@ class WaitlistCreate(BaseModel):
 
 class AnalyzeRequest(BaseModel):
     text: str
+
+# ==================== DETECTION FUNCTIONS ====================
+
+async def detect_bias(text: str):
+    """
+    Detect bias in AI-generated text using GPT
+    """
+    try:
+        response = openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": """You are a bias detection expert. 
+                    Analyze text for gender bias, racial bias, age bias, 
+                    cultural bias, or discriminatory language.
+                    
+                    Respond in this EXACT format:
+                    BIAS_SCORE: [0-100, where 0=no bias, 100=extreme bias]
+                    BIAS_DETECTED: [YES/NO]
+                    BIAS_TYPES: [list types found, or NONE]
+                    EXPLANATION: [brief explanation]
+                    """
+                },
+                {
+                    "role": "user",
+                    "content": f"Analyze for bias:\n\n{text}"
+                }
+            ],
+            temperature=0.3,
+            max_tokens=300
+        )
+        
+        analysis = response.choices[0].message.content
+        
+        # Parse response
+        lines = analysis.split('\n')
+        bias_score = 0
+        bias_detected = "NO"
+        bias_types = "NONE"
+        explanation = ""
+        
+        for line in lines:
+            if line.startswith("BIAS_SCORE:"):
+                try:
+                    bias_score = int(line.split(":")[1].strip())
+                except:
+                    bias_score = 0
+            elif line.startswith("BIAS_DETECTED:"):
+                bias_detected = line.split(":")[1].strip()
+            elif line.startswith("BIAS_TYPES:"):
+                bias_types = line.split(":", 1)[1].strip()
+            elif line.startswith("EXPLANATION:"):
+                explanation = line.split(":", 1)[1].strip()
+        
+        return {
+            "bias_score": bias_score,
+            "bias_detected": bias_detected,
+            "bias_types": bias_types,
+            "explanation": explanation
+        }
+    except Exception as e:
+        return {
+            "bias_score": 0,
+            "bias_detected": "ERROR",
+            "bias_types": "NONE",
+            "explanation": str(e)
+        }
+
+
+def detect_privacy_risks(text: str):
+    """
+    Detect PII and privacy risks using regex patterns
+    """
+    risks = []
+    privacy_score = 0
+    
+    # Email detection
+    emails = re.findall(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', text)
+    if emails:
+        risks.append(f"Email addresses found: {len(emails)}")
+        privacy_score += 30
+    
+    # Phone number detection
+    phones = re.findall(r'\b\d{3}[-.]?\d{3}[-.]?\d{4}\b', text)
+    if phones:
+        risks.append(f"Phone numbers found: {len(phones)}")
+        privacy_score += 25
+    
+    # SSN detection (US format)
+    ssns = re.findall(r'\b\d{3}-\d{2}-\d{4}\b', text)
+    if ssns:
+        risks.append(f"SSN-like patterns found: {len(ssns)}")
+        privacy_score += 40
+    
+    # Credit card detection
+    credit_cards = re.findall(r'\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b', text)
+    if credit_cards:
+        risks.append(f"Credit card patterns found: {len(credit_cards)}")
+        privacy_score += 35
+    
+    # Address detection (simple)
+    if re.search(r'\d+\s+[\w\s]+(?:street|st|avenue|ave|road|rd|drive|dr|lane|ln|boulevard|blvd)', text, re.IGNORECASE):
+        risks.append("Physical address detected")
+        privacy_score += 20
+    
+    # Cap at 100
+    privacy_score = min(privacy_score, 100)
+    
+    return {
+        "privacy_score": privacy_score,
+        "risks_found": len(risks),
+        "risk_details": risks if risks else ["No PII detected"],
+        "has_pii": "YES" if risks else "NO"
+    }
 
 # Root endpoint
 @app.get("/")
@@ -152,12 +268,12 @@ async def analyze_text(
     db: Session = Depends(get_db)
 ):
     """
-    Analyze AI-generated text for hallucinations (requires authentication)
+    Analyze AI-generated text for hallucinations, bias, and privacy risks
     """
     try:
         text = request.text
         
-        # Call GPT to analyze
+        # Call GPT to analyze HALLUCINATION (your existing code)
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
@@ -206,11 +322,22 @@ async def analyze_text(
             elif line.startswith("RECOMMENDATIONS:"):
                 recommendations = line.split(":", 1)[1].strip()
         
+        # NEW: Run bias and privacy detection
+        bias_result = await detect_bias(text)
+        privacy_result = detect_privacy_risks(text)
+        
+        # Calculate overall risk score (weighted average)
+        overall_risk = int(
+            (risk_score * 0.5) +                        # 50% weight on hallucination
+            (bias_result["bias_score"] * 0.3) +          # 30% weight on bias
+            (privacy_result["privacy_score"] * 0.2)      # 20% weight on privacy
+        )
+        
         # Save to database with user_id
         db_analysis = models.Analysis(
             user_id=current_user.id,
             input_text=text[:500],
-            risk_score=risk_score,
+            risk_score=overall_risk,  # Changed to overall_risk
             is_hallucination=is_hallucination,
             reason=reason,
             recommendations=recommendations,
@@ -223,11 +350,20 @@ async def analyze_text(
         return {
             "success": True,
             "analysis_id": db_analysis.id,
+            "overall_risk_score": overall_risk,  # NEW: Overall combined score
+            
+            # Hallucination detection (your existing fields)
             "risk_score": risk_score,
             "is_hallucination": is_hallucination,
             "reason": reason,
             "recommendations": recommendations,
-            "full_analysis": analysis
+            "full_analysis": analysis,
+            
+            # NEW: Bias detection results
+            "bias_detection": bias_result,
+            
+            # NEW: Privacy detection results
+            "privacy_detection": privacy_result
         }
         
     except Exception as e:
@@ -235,7 +371,8 @@ async def analyze_text(
             "success": False,
             "error": str(e)
         }
-
+    
+    
 @app.get("/my-analyses")
 async def get_my_analyses(
     limit: int = 20,
