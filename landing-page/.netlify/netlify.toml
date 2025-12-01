@@ -1,0 +1,26 @@
+plugins = []
+headers = []
+redirects = []
+
+[functions]
+
+[functions."*"]
+
+[build]
+publish = "D:\\VS_Code_Projects\\Ai_Risk_Detector\\landing-page"
+publishOrigin = "default"
+base = "D:\\VS_Code_Projects\\Ai_Risk_Detector\\landing-page"
+
+[build.environment]
+
+[build.processing]
+
+[build.processing.css]
+
+[build.processing.html]
+
+[build.processing.images]
+
+[build.processing.js]
+
+[build.services]

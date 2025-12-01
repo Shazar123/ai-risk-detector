@@ -352,11 +352,43 @@ function App() {
                 <p>{result.recommendations}</p>
               </div>
 
-               {result?.full_analysis && (
-            <div className="full-analysis detail-box">
-              <h3>📄 Full Analysis</h3>
-              <pre>{result.full_analysis}</pre>
-            </div>
+                 {result?.full_analysis && (
+              <div className="full-analysis detail-box">
+                <h3>📄 Full Analysis</h3>
+                <pre>{result.full_analysis}</pre>
+              </div>
+            )}
+  
+              {result.bias_detection && (
+        <div className="detail-box">
+          <h3>⚖️ Bias Detection</h3>
+          <div style={{ fontSize: '2rem', fontWeight: 'bold', color: getRiskColor(result.bias_detection.bias_score), marginBottom: '10px' }}>
+            {result.bias_detection.bias_score}/100
+          </div>
+          <p><strong>Bias Detected:</strong> {result.bias_detection.bias_detected}</p>
+          {result.bias_detection.bias_types !== "NONE" && (
+            <p><strong>Types:</strong> {result.bias_detection.bias_types}</p>
+          )}
+          <p>{result.bias_detection.explanation}</p>
+        </div>
+      )}
+
+      {result.privacy_detection && (
+        <div className="detail-box">
+          <h3>🔒 Privacy Risk Check</h3>
+          <div style={{ fontSize: '2rem', fontWeight: 'bold', color: getRiskColor(result.privacy_detection.privacy_score), marginBottom: '10px' }}>
+            {result.privacy_detection.privacy_score}/100
+          </div>
+          <p><strong>PII Found:</strong> {result.privacy_detection.has_pii}</p>
+          <p><strong>Issues Detected:</strong> {result.privacy_detection.risks_found}</p>
+          <ul style={{ marginLeft: '20px', marginTop: '10px' }}>
+            {result.privacy_detection.risk_details.map((risk, i) => (
+              <li key={i} style={{ marginBottom: '5px' }}>{risk}</li>
+            ))}
+          </ul>
+        </div>
+
+
           )}
         </div>
             </div>
