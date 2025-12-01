@@ -19,9 +19,9 @@ models.Base.metadata.create_all(bind=engine)
 app = FastAPI(title="AI Risk Detector API")
 
 origins = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:3001"
+    "http://localhost:3000", # Local dev
+    "https://ai-risk-detector.vercel.app", # My frontend
+    "http://localhost:3001" # Landing page
 ]
 # CORS
 

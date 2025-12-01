@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 
+const API_URL = process.env.REACT_APP_API_URL || "http://127.0.0.1:8000";
+
 function App() {
   const [view, setView] = useState('login'); // 'login', 'signup', 'dashboard'
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [user, setUser] = useState(null);
+  
   
   // Form states
   const [email, setEmail] = useState('');
@@ -29,7 +32,7 @@ function App() {
 
   const fetchUser = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:8000/auth/me', {
+      const response = await fetch(`${API_URL}/auth/me`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -45,7 +48,7 @@ function App() {
 
   const fetchHistory = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:8000/my-analyses', {
+      const response = await fetch(`${API_URL}/my-analyses`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -61,7 +64,7 @@ function App() {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:8000/stats', {
+      const response = await fetch(`${API_URL}/stats`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -78,7 +81,7 @@ function App() {
     setError(null);
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/auth/signup', {
+      const response =  await fetch(`${API_URL}/auth/signup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -110,7 +113,7 @@ function App() {
     setError(null);
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/auth/login', {
+      const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -153,7 +156,7 @@ function App() {
     setResult(null);
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/analyze', {
+      const response =  await fetch(`${API_URL}/analyze`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
