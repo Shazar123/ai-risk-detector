@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, EmailStr, constr
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 import openai
 import os
@@ -41,7 +41,7 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 # Pydantic models
 class UserCreate(BaseModel):
     email: EmailStr
-    password: constr(max_length=72)
+    password: str = Field(..., max_length=72)
     full_name: str
 
 class UserLogin(BaseModel):
